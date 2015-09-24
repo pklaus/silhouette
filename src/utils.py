@@ -32,7 +32,7 @@ def unit(val, **kw):
         elif type(val) in (str, unicode):
             val = units.parse_expression(val)
         else:
-            raise TypeError, "I don't know how to convert type '%s' to a unit" % str(type(val))
+            raise TypeError("I don't know how to convert type '%s' to a unit" % str(type(val)))
     assert type(val) == units.Quantity, "%r != %r" % (type(val), units.Quantity)
     if _unit:
         val = val.to(_unit)
@@ -58,7 +58,7 @@ def circle(**kw):
     phase = float(_kw["phase"])
     #
     if steps < 2:
-        raise ValueError, "3 or more steps are required"
+        raise ValueError("3 or more steps are required")
     radstep = (2 * math.pi) / float(_steps - 1)
     for rad in range(int(_steps)):
         x = math.cos(rad * radstep + phase) * radius + center_x

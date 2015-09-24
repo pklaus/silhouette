@@ -1,30 +1,31 @@
 import sys
 import math
 import re
-from graph import *
 from xml.dom import minidom
+from multiprocessing import Process, Queue
+
+from graph import *
 import shapely.ops
 from shapely.geometry import LineString
+import svg.path
 import kdtree
-from multiprocessing import Process, Queue
 
 try:
     import silhouette
     units = silhouette.units
 except ImportError:
     msg = "Warning: no silhouette module available"
-    print msg
+    print(msg)
 
 units.define("pixel = inch / 72 = px")
 
 def to_steps(thing):
     if type(thing) in (tuple, list) and len(thing) == 2 and type(thing[0]) in (int, float):
-        # reverse x and y
-        (y, x) = thing
+        (x, y) = thing
         x *= units["pixel"]
         y *= units["pixel"]
         # flip x
-        #x = (12 * units["inch"]) - x
+        x = (12 * units["inch"]) - x
         x = x.to("steps").magnitude
         y = y.to("steps").magnitude
         return (x, y)
@@ -39,48 +40,6 @@ def draw_rect(cutter, **kw):
     draw = [(x + width, y), (x + width, y + height), (x, y + height), (x, y)]
     cutter.position = to_steps(move)
     cutter.draw(to_steps(draw))
-
-def parse_path(path):
-    commands = set("MZLHVCSQTA")
-    wsp = set(" \t\r\n")
-    wsp_comma = wsp.union(set(","))
-    signs = wsp.union(set("+-"))
-    command = None
-    arguments = []
-    arg = ''
-    for ch in path:
-        if ch.upper() in commands:
-            if arg:
-                arguments.append(float(arg))
-            if command:
-                yield (command, tuple(arguments))
-            command = ch
-            arguments = []
-            arg = ''
-        elif ch in wsp_comma:
-            if arg:
-                arguments.append(float(arg))
-            arg = ''
-        elif ch in signs:
-            if arg:
-                arguments.append(float(arg))
-            arg = ch
-        else:
-            arg += ch
-
-def extract_lines(path):
-    commands = parse_path(path)
-    moves = 0
-    points = 0
-    for (command, args) in commands:
-        if command == 'M':
-            moves += 1
-            cursor = args
-        elif command == 'L':
-            line = (cursor, args)
-            points += 2
-            yield line
-            cursor = args
 
 def walk_graph(graph, node):
     stack = [node]
@@ -144,13 +103,20 @@ def graph_lines(lines):
     return graph
 
 def simplify_path(path):
-    #lines = list(extract_lines(path))
-    lines = to_steps(extract_lines(path))
+    lines = svg.path.parse_path(path)
+    coords = [lines[0].start]
+    for line in lines:
+        if type(line) != svg.path.Line:
+            raise NameError('The SVG file contains a path with crap: {}.'.format(type(line)))
+        coords.append(line.end)
+    coords = [(c.real, c.imag) for c in coords]
+    lines = to_steps(coords)
+    lines = [list(lines)]
     result = shapely.ops.linemerge(lines)
-    print "building graph"
+    print("building graph")
     graph = graph_lines(result)
-    print "building kdtree"
-    tree = kdtree.create(graph.keys())
+    print("building kdtree")
+    tree = kdtree.create(list(graph.keys()))
     return build_path_commands(tree, graph)
 
 def produce_paths(svgfn, path_queue):
@@ -187,13 +153,13 @@ def draw_svg(worker, path_queue):
 def connect():
     cutter = silhouette.Silhouette()
     cutter.connect()
-    print "speed"
+    print("speed")
     cutter.speed = 8
-    print "pressure"
+    print("pressure")
     cutter.pressure = 4
-    print "media"
+    print("media")
     cutter.media = 113
-    print "offset"
+    print("offset")
     cutter.offset = 0
     return cutter
 

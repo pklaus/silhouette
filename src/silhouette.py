@@ -2,7 +2,8 @@ import time
 import usb.core
 import usb.util
 from warnings import warn
-import gpgl
+
+from . import gpgl
 
 class SilhouetteException(Exception):
     pass
@@ -26,7 +27,7 @@ class Silhouette(object):
         devs = list(devs)
         if not devs:
             msg = "Can not find any devices with vendor_id == %s" % self.vendor_id
-            raise SilhouetteException, msg
+            raise SilhouetteException(msg)
         if len(devs) > 1:
             msg = "There are multiple devices that match vendor_id == %s, using the first one in the list." % self.vendor_id
             warn(msg)
@@ -34,6 +35,9 @@ class Silhouette(object):
 
     def connect(self):
         self.dev = self.usbscan()
+        if self.dev.is_kernel_driver_active(0):
+            self.dev.detach_kernel_driver(0)
+        usb.util.claim_interface(self.dev, 0)
         self.dev.reset()
 
         # set the active configuration. With no arguments, the first
@@ -53,9 +57,6 @@ class Silhouette(object):
             custom_match = lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN)
         assert self.ep_in is not None
 
-        self.ep_intr_in = usb.util.find_descriptor(intf, 
-                custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN and usb.util.endpoint_type(e.bEndpointAddress) == usb.util.ENDPOINT_TYPE_INTR)
-        assert self.ep_intr_in is not None
         self.init()
 
     def move(self, pos, rel=True):
@@ -125,10 +126,10 @@ class Silhouette(object):
         resp = self.read(2)
         resp = list(resp)
         if len(resp) != 2:
-            raise ValueError, "Bad response to status request"
+            raise ValueError("Bad response to status request")
         (status_byte, magic_byte) = resp
         if magic_byte != 0x3:
-            raise ValueError, "Status magic byte does not equal 0x03 (0x%02x)" % resp[-1]
+            raise ValueError("Status magic byte does not equal 0x03 (0x%02x)" % resp[-1])
         if status_byte == 0x30:
             return "ready"
         if status_byte == 0x31:
