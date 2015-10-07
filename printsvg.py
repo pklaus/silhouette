@@ -1,6 +1,6 @@
-import sys
-import math
-import re
+#!/usr/bin/env python
+
+import sys, math, re, argparse
 from xml.dom import minidom
 from multiprocessing import Process, Queue
 
@@ -14,8 +14,8 @@ try:
     import silhouette
     units = silhouette.units
 except ImportError:
-    msg = "Warning: no silhouette module available"
-    print(msg)
+    sys.stderr.write("Warning: no silhouette module available\n")
+    sys.exit(1)
 
 units.define("pixel = inch / 72 = px")
 
@@ -165,7 +165,9 @@ def connect():
 
 if __name__ == "__main__":
     path_queue = Queue()
-    svgfn = sys.argv[1]
-    worker = Process(target=produce_paths, args=(svgfn, path_queue))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('svg_img', help='filename of the SVG image to be cut')
+    args = parser.parse_args()
+    worker = Process(target=produce_paths, args=(args.svg_img, path_queue))
     worker.start()
     draw_svg(worker, path_queue)
