@@ -16,6 +16,10 @@ sctk = {
         "silhouette.utils",
     ],
     "version": "0.1",
+    "install_requires": ['pyusb'],
+    "extras_require": {
+        'svg': ['pqdict', 'shapely', 'svg.path', 'kdtree', 'pint'],
+    }
 }
 
 if __name__ == "__main__":
