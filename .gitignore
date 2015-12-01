@@ -1,3 +1,5 @@
 .*.sw*
 build
 robocut
+*.pyc
+__pycache__
