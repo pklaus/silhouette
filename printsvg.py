@@ -133,8 +133,9 @@ def produce_paths(svgfn, path_queue):
         path_queue.put(dict(rect.attributes.items()))
     path_queue.put("done")
 
-def draw_svg(worker, path_queue):
-    cutter = connect()
+def draw_svg(worker, path_queue, connect_kws=None):
+    if connect_kws is None: connect_kws = {}
+    cutter = connect(**connect_kws)
     try:
         while 1:
             thing = path_queue.get()
@@ -150,8 +151,8 @@ def draw_svg(worker, path_queue):
     finally:
         cutter.home()
 
-def connect():
-    cutter = silhouette.Silhouette()
+def connect(**kw):
+    cutter = silhouette.Silhouette(**kw)
     cutter.connect()
     print("speed")
     cutter.speed = 8
@@ -166,8 +167,13 @@ def connect():
 if __name__ == "__main__":
     path_queue = Queue()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('svg_img', help='filename of the SVG image to be cut')
+    parser.add_argument('--output-file', help='Save commands to a file instead of sending to the cutter')
+    parser.add_argument('svg_img', metavar='SVG_IMG', help='Filename of the SVG image to be cut')
     args = parser.parse_args()
     worker = Process(target=produce_paths, args=(args.svg_img, path_queue))
     worker.start()
-    draw_svg(worker, path_queue)
+    if args.output_file:
+        with open(args.output_file, 'wb') as of:
+            draw_svg(worker, path_queue, connect_kws={'output_file': of})
+    else:
+        draw_svg(worker, path_queue)
