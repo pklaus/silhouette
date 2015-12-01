@@ -12,6 +12,7 @@ class Silhouette(object):
     def __init__(self, **kw):
         self.vendor_id = kw.get('vendor_id', 0x0b4d)
         self.product_id = kw.get('product_id', None)
+        self.output_file = kw.get('output_file', None)
         self.pos = (0, 0)
         self._pressure = gpgl.Pressure()
         self._speed = gpgl.Speed()
@@ -34,6 +35,9 @@ class Silhouette(object):
         return devs[0]
 
     def connect(self):
+        if self.output_file:
+            self.init()
+            return
         self.dev = self.usbscan()
         if self.dev.is_kernel_driver_active(0):
             self.dev.detach_kernel_driver(0)
@@ -42,6 +46,7 @@ class Silhouette(object):
 
         # set the active configuration. With no arguments, the first
         # configuration will be the active one
+        print(self.dev)
         self.dev.set_configuration()
 
         # get an endpoint instance
@@ -122,6 +127,8 @@ class Silhouette(object):
 
     @property
     def status(self):
+        if self.output_file:
+            return "ready"
         reslen = self.ep_out.write("\x1b\x05")
         resp = self.read(2)
         resp = list(resp)
@@ -162,10 +169,16 @@ class Silhouette(object):
             time.sleep(.1)
 
     def read(self, length=1):
+        if self.output_file:
+            return b''
         info = self.ep_in.read(length)
         return info
 
     def write(self, msg):
+        msg = msg.encode()
+        if self.output_file:
+            self.output_file.write(msg)
+            return
         bufsize = self.ep_out.wMaxPacketSize
         idx = 0
         #print str.join(' ', ["%s (0x%02x)" % (x, ord(x)) for x in msg])
